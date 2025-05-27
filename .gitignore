@@ -24,3 +24,9 @@ hs_err_pid*
 replay_pid*
 
 key.properties
+local.properties
+
+app-release.aab
+app-release.apk
+app-release.dm
+output-metadata.json

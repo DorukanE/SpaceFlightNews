@@ -1,2 +1,8 @@
 /build
 key.properties
+local.properties
+
+app-release.aab
+app-release.apk
+app-release.dm
+output-metadata.json
