@@ -1,0 +1,8 @@
+<resources>
+  <string name="app_name">Space Flight News</string>
+  <string name="article_screen_title">Space Flight News</string>
+  <string name="search_news_placeholder">Search For News</string>
+  <string name="search_favorites_placeholder">Search For Favorites</string>
+
+  <string name="parameters_are_null">Could not read the data properly!</string>
+</resources>
