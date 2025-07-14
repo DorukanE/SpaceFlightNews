@@ -69,6 +69,7 @@ import com.dorukaneskiceri.spaceflightnews.domain.model.ArticleList
 import com.dorukaneskiceri.spaceflightnews.domain.model.Author
 import com.dorukaneskiceri.spaceflightnews.ui.article.component.CustomProgressIndicator
 import com.dorukaneskiceri.spaceflightnews.ui.article.component.CustomTopAppBar
+import com.dorukaneskiceri.spaceflightnews.ui.article.model.ArticleUiState
 import com.dorukaneskiceri.spaceflightnews.ui.article.model.NewsItemUiModel
 import com.dorukaneskiceri.spaceflightnews.ui.article.viewmodel.ArticleViewModel
 import com.dorukaneskiceri.spaceflightnews.ui.articledetail.model.ArticleDetailNavigationModel
@@ -96,21 +97,15 @@ fun ArticleScreen(
     ArticleScreenImpl(
         modifier = modifier.fillMaxSize(),
         articles = articleList,
-        favoriteArticles = state.favoriteArticles,
-        loadingState = state.isLoading,
-        errorMessage = state.errorMessage,
-        isConnectionAvailable = state.isConnectionAvailable,
+        state = state,
         onGoToDetailScreen = onGoToDetailScreen,
         onGetArticles = viewModel::getMoreArticles,
         onRefreshArticles = viewModel::refreshArticles,
         onClearErrorState = viewModel::clearErrorState,
-        searchResults = state.searchResults,
         onSearchArticles = viewModel::searchArticles,
-        searchQuery = state.searchQuery,
         onFavoriteClickForNews = viewModel::onUpdateFavoriteArticleFromNews,
         onFavoriteItemClickForFavorites = viewModel::onUpdateFavoriteArticleFromFavorites,
         onSearchInFavorites = viewModel::searchInFavorites,
-        searchResultsFavorites = state.searchResultsFavorites
     )
 }
 
@@ -119,13 +114,8 @@ fun ArticleScreen(
 fun ArticleScreenImpl(
     modifier: Modifier = Modifier,
     articles: List<ArticleList>,
-    favoriteArticles: List<ArticleList>,
-    loadingState: Boolean,
-    isConnectionAvailable: Boolean,
-    searchQuery: String,
+    state: ArticleUiState,
     errorMessage: String? = null,
-    searchResults: List<ArticleList>,
-    searchResultsFavorites: List<ArticleList>,
     onGoToDetailScreen: (ArticleDetailNavigationModel) -> Unit,
     onGetArticles: (String) -> Unit,
     onRefreshArticles: () -> Unit,
@@ -178,13 +168,13 @@ fun ArticleScreenImpl(
             Spacer(Modifier.height(SpaceFlightNewsTheme.spacing.small))
 
             NewsPager(
-                articles = searchResults.ifEmpty { articles },
-                favoriteArticles = favoriteArticles,
-                loadingState = loadingState,
-                isConnectionAvailable = isConnectionAvailable,
+                articles = state.searchResults.ifEmpty { articles },
+                favoriteArticles = state.favoriteArticles,
+                isLoading = state.isLoading,
+                isConnectionAvailable = state.isConnectionAvailable,
                 onGetArticles = onGetArticles,
-                searchQuery = searchQuery,
-                searchResultsFavorites = searchResultsFavorites,
+                searchQuery = state.searchQuery,
+                searchResultsFavorites = state.searchResultsFavorites,
                 onFavoriteClickForNews = { favoriteArticle, isFavorite ->
                     onFavoriteClickForNews(favoriteArticle, isFavorite)
                 },
@@ -216,7 +206,7 @@ fun ArticleScreenImpl(
     )
 
     CustomProgressIndicator(
-        isVisible = loadingState,
+        isVisible = state.isLoading,
     )
 }
 
@@ -225,7 +215,7 @@ fun NewsPager(
     articles: List<ArticleList>,
     favoriteArticles: List<ArticleList>,
     searchQuery: String,
-    loadingState: Boolean,
+    isLoading: Boolean,
     isConnectionAvailable: Boolean,
     searchResultsFavorites: List<ArticleList>,
     onGetArticles: (String) -> Unit,
@@ -297,7 +287,7 @@ fun NewsPager(
                                 showScrollToTopButton = it
                             },
                             listState = articleListState,
-                            loadingState = loadingState,
+                            loadingState = isLoading,
                             resetVisibleItemCounter = resetVisibleItemCounter,
                             isConnectionAvailable = isConnectionAvailable,
                             onGetArticles = onGetArticles,
@@ -672,19 +662,14 @@ fun ArticleScreenPreviewWithData() {
     ArticleScreenImpl(
         modifier = Modifier.fillMaxSize(),
         articles = sampleArticles,
-        favoriteArticles = emptyList(),
-        loadingState = false,
-        isConnectionAvailable = true,
+        state = ArticleUiState.initial(),
         onGoToDetailScreen = {},
         onGetArticles = {},
         onClearErrorState = {},
         onRefreshArticles = {},
         onSearchArticles = {},
-        searchResults = emptyList(),
-        searchQuery = "",
         onFavoriteClickForNews = { _, _ -> },
         onFavoriteItemClickForFavorites = { _, _ -> },
         onSearchInFavorites = {},
-        searchResultsFavorites = emptyList()
     )
 }
