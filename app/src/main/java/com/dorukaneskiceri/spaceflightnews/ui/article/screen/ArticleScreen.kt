@@ -121,8 +121,8 @@ fun ArticleScreenImpl(
     onRefreshArticles: () -> Unit,
     onClearErrorState: () -> Unit,
     onSearchArticles: (String) -> Unit,
-    onFavoriteClickForNews: (ArticleList, Boolean) -> Unit,
-    onFavoriteItemClickForFavorites: (ArticleList?, Boolean) -> Unit,
+    onFavoriteClickForNews: (Int, Boolean) -> Unit,
+    onFavoriteItemClickForFavorites: (Int?, Boolean) -> Unit,
     onSearchInFavorites: (String) -> Unit,
 ) {
     val isRefreshing by rememberSaveable { mutableStateOf(false) }
@@ -175,11 +175,11 @@ fun ArticleScreenImpl(
                 onGetArticles = onGetArticles,
                 searchQuery = state.searchQuery,
                 searchResultsFavorites = state.searchResultsFavorites,
-                onFavoriteClickForNews = { favoriteArticle, isFavorite ->
-                    onFavoriteClickForNews(favoriteArticle, isFavorite)
+                onFavoriteClickForNews = { favoriteArticleId, isFavorite ->
+                    onFavoriteClickForNews(favoriteArticleId, isFavorite)
                 },
-                onFavoriteItemClickForFavorites = { favoriteArticle, isFavorite ->
-                    onFavoriteItemClickForFavorites(favoriteArticle, isFavorite)
+                onFavoriteItemClickForFavorites = { favoriteArticleId, isFavorite ->
+                    onFavoriteItemClickForFavorites(favoriteArticleId, isFavorite)
                 },
                 onGoToDetailScreen = onGoToDetailScreen,
                 currentPage = { page ->
@@ -219,8 +219,8 @@ fun NewsPager(
     isConnectionAvailable: Boolean,
     searchResultsFavorites: List<ArticleList>,
     onGetArticles: (String) -> Unit,
-    onFavoriteClickForNews: (ArticleList, Boolean) -> Unit,
-    onFavoriteItemClickForFavorites: (ArticleList?, Boolean) -> Unit,
+    onFavoriteClickForNews: (Int, Boolean) -> Unit,
+    onFavoriteItemClickForFavorites: (Int?, Boolean) -> Unit,
     onGoToDetailScreen: (ArticleDetailNavigationModel) -> Unit,
     currentPage: (Int) -> Unit
 ) {
@@ -280,8 +280,7 @@ fun NewsPager(
                                 onGoToDetailScreen(it.toArticleDetailNavigationModel())
                             },
                             onFavoriteClick = { itemId, isFavorite ->
-                                val favoriteArticle = articles.first { it.id == itemId }
-                                onFavoriteClickForNews(favoriteArticle, isFavorite)
+                                onFavoriteClickForNews(itemId, isFavorite)
                             },
                             showScrollToTopButton = {
                                 showScrollToTopButton = it
@@ -329,8 +328,7 @@ fun NewsPager(
                                     onGoToDetailScreen(it.toArticleDetailNavigationModel())
                                 },
                                 onFavoriteClick = { itemId, isFavorite ->
-                                    val favoriteArticle = articles.firstOrNull { it.id == itemId }
-                                    onFavoriteItemClickForFavorites(favoriteArticle, isFavorite)
+                                    onFavoriteItemClickForFavorites(itemId, isFavorite)
                                 },
                                 showScrollToTopButton = {
                                     showScrollToTopButton = it

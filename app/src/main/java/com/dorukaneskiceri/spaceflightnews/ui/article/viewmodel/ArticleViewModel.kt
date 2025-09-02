@@ -11,8 +11,7 @@ import com.dorukaneskiceri.spaceflightnews.util.ext.onFailure
 import com.dorukaneskiceri.spaceflightnews.util.ext.onSuccess
 import com.dorukaneskiceri.spaceflightnews.util.ext.runWithIO
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +22,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,7 +32,8 @@ class ArticleViewModel @Inject constructor(
 
     private var _state = MutableStateFlow(initial())
     val state = _state.onStart {
-        callOnStartServices()
+        getArticles()
+        getFavoriteArticles()
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
@@ -59,8 +60,11 @@ class ArticleViewModel @Inject constructor(
         if (!search.isNullOrBlank()) {
             delay(THRESHOLD)
         }
-        articleRepository.getArticles(search, limit, offset)
-            .onStart {
+        val response = withContext(Dispatchers.IO) {
+            articleRepository.getArticles(search, limit, offset)
+        }
+        with(response) {
+            onStart {
                 _state.update {
                     it.copy(isLoading = true)
                 }
@@ -71,30 +75,43 @@ class ArticleViewModel @Inject constructor(
             }.onSuccess { response ->
                 if (search.isNullOrBlank()) {
                     if (isRefreshed) {
+                        val data = response.results
+                        articleRepository.getFavoriteArticles()
+                            .collectLatest { favoriteArticles ->
+                                data.forEach {
+                                    it.isFavorite =
+                                        favoriteArticles.any { favoriteArticle ->
+                                            favoriteArticle.id == it.id
+                                        }
+                                }
+                            }
                         _state.update {
                             it.copy(
-                                articles = response.results,
+                                articles = data,
                                 isConnectionAvailable = true,
                                 searchResults = emptyList()
                             )
                         }
+
                     } else {
                         _state.update {
                             val updatedArticleList = it.articles + response.results
-                            articleRepository.saveArticleResponseToDatabase(
-                                articleResponse = response.copy(
-                                    results = updatedArticleList
+                            withContext(Dispatchers.IO) {
+                                articleRepository.saveArticleResponseToDatabase(
+                                    articleResponse = response.copy(
+                                        results = updatedArticleList
+                                    )
                                 )
-                            )
-                            articleRepository.getFavoriteArticles()
-                                .collectLatest { favoriteArticles ->
-                                    updatedArticleList.forEach {
-                                        it.isFavorite =
-                                            favoriteArticles.any { favoriteArticle ->
-                                                favoriteArticle.id == it.id
-                                            }
+                                articleRepository.getFavoriteArticles()
+                                    .collectLatest { favoriteArticles ->
+                                        updatedArticleList.forEach {
+                                            it.isFavorite =
+                                                favoriteArticles.any { favoriteArticle ->
+                                                    favoriteArticle.id == it.id
+                                                }
+                                        }
                                     }
-                                }
+                            }
                             it.copy(
                                 articles = updatedArticleList,
                                 isConnectionAvailable = true,
@@ -120,10 +137,12 @@ class ArticleViewModel @Inject constructor(
                                 isConnectionAvailable = false
                             )
                         }
-                        articleRepository.getArticleResponseFromDatabase()
-                            .collectLatest { cachedArticle ->
-                                _state.update { it.copy(cachedArticles = cachedArticle.results.reversed()) }
-                            }
+                        withContext(Dispatchers.IO) {
+                            articleRepository.getArticleResponseFromDatabase()
+                                .collectLatest { cachedArticle ->
+                                    _state.update { it.copy(cachedArticles = cachedArticle.results.reversed()) }
+                                }
+                        }
                     }
 
                     else -> {
@@ -133,6 +152,7 @@ class ArticleViewModel @Inject constructor(
                     }
                 }
             }.collect()
+        }
     }
 
     private fun updateArticleList(articleId: Int, isFavorite: Boolean) {
@@ -161,21 +181,25 @@ class ArticleViewModel @Inject constructor(
     }
 
     private suspend fun getFavoriteArticles() {
-        articleRepository.getFavoriteArticles().collectLatest { favoriteArticles ->
-            _state.update {
-                it.copy(favoriteArticles = favoriteArticles)
+        withContext(Dispatchers.IO) {
+            articleRepository.getFavoriteArticles().collectLatest { favoriteArticles ->
+                _state.update {
+                    it.copy(favoriteArticles = favoriteArticles)
+                }
             }
         }
     }
 
     fun refreshArticles() {
-        viewModelScope.runWithIO {
+        viewModelScope.launch {
             _offset.value = 0
             _searchQuery.value = ""
             _state.update {
                 it.copy(searchQuery = _searchQuery.value)
             }
-            getArticles(isRefreshed = true, offset = null, search = null)
+            withContext(Dispatchers.IO) {
+                getArticles(isRefreshed = true, offset = null, search = null)
+            }
         }
     }
 
@@ -204,24 +228,24 @@ class ArticleViewModel @Inject constructor(
         }
     }
 
-    fun onUpdateFavoriteArticleFromNews(article: ArticleList, isFavorite: Boolean) {
-        viewModelScope.runWithIO {
-            articleRepository.updateArticleFavoriteStatus(article.id, isFavorite)
-                .also {
-                    getFavoriteArticles()
-                    updateArticleList(article.id, isFavorite)
-                }
+    fun onUpdateFavoriteArticleFromNews(articleId: Int, isFavorite: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                articleRepository.updateArticleFavoriteStatus(articleId, isFavorite)
+                getFavoriteArticles()
+            }
+            updateArticleList(articleId, isFavorite)
         }
     }
 
-    fun onUpdateFavoriteArticleFromFavorites(article: ArticleList?, isFavorite: Boolean) {
-        if (article == null) return
-        viewModelScope.runWithIO {
-            articleRepository.updateArticleFavoriteStatus(article.id, isFavorite)
-                .also {
-                    getFavoriteArticles()
-                    updateArticleList(article.id, isFavorite)
-                }
+    fun onUpdateFavoriteArticleFromFavorites(articleId: Int?, isFavorite: Boolean) {
+        if (articleId == null) return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                articleRepository.updateArticleFavoriteStatus(articleId, isFavorite)
+                getFavoriteArticles()
+            }
+            updateArticleList(articleId, isFavorite)
         }
     }
 
@@ -236,15 +260,6 @@ class ArticleViewModel @Inject constructor(
             currentState.copy(
                 searchResultsFavorites = searchInFavoriteArticles(query, currentState)
             )
-        }
-    }
-
-    private fun callOnStartServices() {
-        viewModelScope.runWithIO {
-            listOf(
-                async { getArticles() },
-                async { getFavoriteArticles() }
-            ).awaitAll()
         }
     }
 }
